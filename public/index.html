@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f7fc">
+    <title>Rio</title>
+    <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="intro-banner" aria-labelledby="intro-title">
+        <p>Distribuidora Río Claro</p>
+        <h2 id="intro-title">Consulta información general sobre los procesos de Río Claro</h2>
+      </section>
+
+      <section class="chat-card" aria-labelledby="chat-title">
+        <header class="chat-header">
+          <img class="brand-mark" src="/assistant-avatar.png" alt="" aria-hidden="true">
+          <div class="brand-copy">
+            <h1 id="chat-title">Rio</h1>
+            <p>Tu asistente empresarial</p>
+          </div>
+          <div class="header-actions">
+            <button id="new-chat-button" class="header-button" type="button" aria-label="Iniciar conversación nueva" title="Nueva conversación">
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M10 4v12M4 10h12"></path>
+              </svg>
+              <span>Nuevo</span>
+            </button>
+            <button id="history-button" class="header-button" type="button" aria-expanded="false" aria-controls="chat-history">
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M3.5 5.5h13m-13 4.5h13m-13 4.5h13"></path>
+              </svg>
+              <span>Historial</span>
+            </button>
+          </div>
+        </header>
+
+        <aside id="chat-history" class="chat-history" aria-label="Historial de conversaciones" hidden>
+          <div class="history-heading">
+            <h2>Conversaciones guardadas</h2>
+            <p>Se guardan solo en este navegador.</p>
+          </div>
+          <p id="storage-status" class="storage-status" role="status" aria-live="polite"></p>
+          <div id="conversation-list" class="conversation-list"></div>
+        </aside>
+
+        <div
+          id="chat-messages"
+          class="chat-messages"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Conversación"
+        >
+          <article class="message message-assistant">
+            <img class="message-avatar" src="/assistant-avatar.png" alt="" aria-hidden="true">
+            <div class="message-content">
+              <p>¡Hola! Soy el asistente de Río Claro. ¿En qué puedo ayudarte?</p>
+            </div>
+          </article>
+        </div>
+
+        <div id="chat-status" class="chat-status" role="status" aria-live="polite"></div>
+
+        <form id="chat-form" class="chat-composer">
+          <label class="visually-hidden" for="chat-input">Escribe tu mensaje</label>
+          <textarea
+            id="chat-input"
+            name="message"
+            rows="1"
+            maxlength="2000"
+            placeholder="Escribe tu mensaje..."
+            autocomplete="off"
+            required
+          ></textarea>
+          <button id="send-button" type="submit" aria-label="Enviar mensaje">
+            <span>Enviar</span>
+            <svg aria-hidden="true" viewBox="0 0 20 20">
+              <path d="M3.5 10h12m-5-5 5 5-5 5"></path>
+            </svg>
+          </button>
+          <p class="composer-hint">Enter para enviar · Shift + Enter para una nueva línea</p>
+        </form>
+      </section>
+      <p class="privacy-note">Las respuestas pueden requerir verificación con las políticas vigentes.</p>
+    </main>
+  </body>
+</html>
