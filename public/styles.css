@@ -311,6 +311,19 @@ textarea {
   white-space: pre-wrap;
 }
 
+.attachment-reference {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.message-user .attachment-reference {
+  border-top: 1px solid rgb(255 255 255 / 28%);
+  padding-top: 0.4rem;
+}
+
 .message-user .message-content {
   border-radius: 16px 16px 4px 16px;
   background: var(--user-bubble);
@@ -323,11 +336,51 @@ textarea {
 }
 
 .chat-status {
+  display: flex;
   flex: 0 0 auto;
   min-height: 1.4rem;
+  align-items: center;
+  gap: 0.55rem;
   padding: 0 1.5rem;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+.chat-loading-indicator[hidden] {
+  display: none;
+}
+
+.chat-loading-ring {
+  display: grid;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.chat-loading-ring::before {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: assistant-loading-spin 0.9s linear infinite;
+  content: "";
+}
+
+.chat-loading-ring img {
+  z-index: 1;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+@keyframes assistant-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chat-composer {
@@ -402,6 +455,134 @@ textarea {
   font-size: 0.72rem;
 }
 
+.composer-attachment {
+  display: flex;
+  min-width: 0;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.attachment-dropzone {
+  display: flex;
+  min-width: min(100%, 240px);
+  min-height: 48px;
+  flex: 1 1 240px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.45rem 0.75rem;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.attachment-dropzone:hover,
+.attachment-dropzone:focus-visible {
+  border-color: var(--brand);
+  color: var(--text);
+}
+
+.attachment-dropzone:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.attachment-dropzone.is-dragging {
+  border: 2px dashed var(--brand);
+  background: var(--assistant-bubble);
+  color: var(--brand-strong);
+}
+
+.attachment-dropzone.is-disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.dropzone-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.dropzone-hint {
+  font-size: 0.7rem;
+}
+
+.attachment-button,
+.remove-attachment-button {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+}
+
+.attachment-button:hover:not(:disabled),
+.remove-attachment-button:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.attachment-button:focus-visible,
+.remove-attachment-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.attachment-button:disabled,
+.remove-attachment-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.attachment-preview {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-muted);
+  padding: 0.25rem 0.35rem 0.25rem 0.65rem;
+}
+
+.attachment-preview[hidden] {
+  display: none;
+}
+
+.attachment-name {
+  max-width: min(45vw, 320px);
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-attachment-button {
+  min-height: 30px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.attachment-status {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--error);
+  font-size: 0.75rem;
+}
+
+.attachment-status:empty {
+  display: none;
+}
+
 .privacy-note {
   margin: 0.8rem 0 0;
   color: var(--text-muted);
@@ -444,6 +625,13 @@ textarea {
 
   .message-error .message-content {
     background: #482b2b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-loading-ring::before {
+    animation: none;
+    border-color: var(--brand);
   }
 }
 

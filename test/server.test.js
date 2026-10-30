@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import ExcelJS from "exceljs";
 
 process.env.FOUNDRY_PROJECT_ENDPOINT =
   "https://example.services.ai.azure.com/api/projects/example";
@@ -20,6 +22,20 @@ async function startServer(t, app) {
     server.close((error) => error ? reject(error) : resolve());
   }));
   return `http://127.0.0.1:${server.address().port}`;
+}
+
+async function postAttachment(baseUrl, fileName, mimeType, buffer, message = "Analiza el archivo") {
+  const formData = new FormData();
+  formData.append("message", message);
+  formData.append(
+    "attachment",
+    new Blob([buffer], { type: mimeType }),
+    fileName,
+  );
+  return fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    body: formData,
+  });
 }
 
 test("GET /health responde con estado ok", async (t) => {
@@ -299,4 +315,173 @@ test("no invoca agentes fuera de la lista permitida", async (t) => {
   assert.deepEqual(toolOutput, {
     error: "La solicitud de delegación no es válida.",
   });
+});
+
+test("extrae el texto de un DOCX antes de enviarlo al agente", async (t) => {
+  const calls = [];
+  const openaiClient = {
+    conversations: {
+      create: async () => ({ id: "docx-conversation" }),
+    },
+    responses: {
+      create: async (params) => {
+        calls.push(params);
+        return { output_text: "Respuesta sobre el documento." };
+      },
+    },
+  };
+  const app = createApp(openaiClient, "test-agent");
+  const baseUrl = await startServer(t, app);
+  const docx = await readFile(
+    new URL("../node_modules/mammoth/test/test-data/single-paragraph.docx", import.meta.url),
+  );
+
+  const response = await postAttachment(
+    baseUrl,
+    "procedimiento.docx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    docx,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(calls[0].input[0].type, "message");
+  assert.equal(calls[0].input[0].role, "user");
+  assert.equal(calls[0].input[0].content[0].type, "input_text");
+  assert.match(
+    calls[0].input[0].content[0].text,
+    /Analiza el archivo\n\nContenido extraído de procedimiento\.docx:\nWalking on imported air/,
+  );
+});
+
+test("extrae celdas de XLSX y las incluye en la entrada del agente", async (t) => {
+  const calls = [];
+  const openaiClient = {
+    conversations: {
+      create: async () => ({ id: "xlsx-conversation" }),
+    },
+    responses: {
+      create: async (params) => {
+        calls.push(params);
+        return { output_text: "Respuesta sobre la hoja." };
+      },
+    },
+  };
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Facturas");
+  worksheet.getCell("A1").value = "Folio";
+  worksheet.getCell("B1").value = "F-123";
+  const xlsx = await workbook.xlsx.writeBuffer();
+  const app = createApp(openaiClient, "test-agent");
+  const baseUrl = await startServer(t, app);
+
+  const response = await postAttachment(
+    baseUrl,
+    "facturas.xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xlsx,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(calls[0].input[0].content[0].text, /Hoja: Facturas/);
+  assert.match(calls[0].input[0].content[0].text, /B1: F-123/);
+});
+
+test("envía una imagen JPG como entrada multimodal", async (t) => {
+  let receivedInput;
+  const openaiClient = {
+    conversations: {
+      create: async () => ({ id: "image-conversation" }),
+    },
+    responses: {
+      create: async (params) => {
+        receivedInput = params.input;
+        return { output_text: "La imagen muestra un producto." };
+      },
+    },
+  };
+  const app = createApp(openaiClient, "test-agent");
+  const baseUrl = await startServer(t, app);
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+
+  const response = await postAttachment(baseUrl, "producto.jpg", "image/jpeg", jpg);
+
+  assert.equal(response.status, 200);
+  assert.equal(receivedInput[0].type, "message");
+  assert.equal(receivedInput[0].role, "user");
+  assert.equal(receivedInput[0].content[0].type, "input_text");
+  assert.equal(receivedInput[0].content[1].type, "input_image");
+  assert.equal(
+    receivedInput[0].content[1].image_url,
+    `data:image/jpeg;base64,${jpg.toString("base64")}`,
+  );
+  assert.equal(receivedInput[0].content[1].detail, "auto");
+});
+
+test("rechaza extensiones no admitidas y contenido con firma incorrecta", async (t) => {
+  const app = createApp({}, "test-agent");
+  const baseUrl = await startServer(t, app);
+  const pdfResponse = await postAttachment(
+    baseUrl,
+    "archivo.pdf",
+    "application/pdf",
+    Buffer.from("%PDF"),
+  );
+  const invalidPngResponse = await postAttachment(
+    baseUrl,
+    "imagen.png",
+    "image/png",
+    Buffer.from("no es una imagen"),
+  );
+
+  assert.equal(pdfResponse.status, 415);
+  assert.equal(invalidPngResponse.status, 422);
+});
+
+test("rechaza archivos mayores a 5 MB", async (t) => {
+  const app = createApp({}, "test-agent");
+  const baseUrl = await startServer(t, app);
+  const oversizedImage = Buffer.alloc(5 * 1024 * 1024 + 1, 0);
+
+  const response = await postAttachment(
+    baseUrl,
+    "imagen.png",
+    "image/png",
+    oversizedImage,
+  );
+
+  assert.equal(response.status, 413);
+});
+
+test("requiere texto para enviar un adjunto y rechaza solicitudes vacías", async (t) => {
+  let responseCalls = 0;
+  const openaiClient = {
+    conversations: {
+      create: async () => ({ id: "attachment-only-conversation" }),
+    },
+    responses: {
+      create: async () => {
+        responseCalls += 1;
+        return { output_text: "Resumen de la imagen." };
+      },
+    },
+  };
+  const app = createApp(openaiClient, "test-agent");
+  const baseUrl = await startServer(t, app);
+  const image = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const attachmentResponse = await postAttachment(
+    baseUrl,
+    "captura.png",
+    "image/png",
+    image,
+    "",
+  );
+  const emptyResponse = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: " " }),
+  });
+
+  assert.equal(attachmentResponse.status, 422);
+  assert.equal(emptyResponse.status, 422);
+  assert.equal(responseCalls, 0);
 });

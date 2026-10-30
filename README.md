@@ -31,7 +31,8 @@ En Azure, configura las variables como ajustes de la aplicación y usa la identi
 ## Endpoints y verificación
 
 - `GET /health` devuelve `{"status":"ok"}`.
-- `POST /api/chat` recibe `{"message":"...","conversation_id":null}` en el primer turno. Usa el `conversation_id` devuelto en los seguimientos para mantener el contexto del orquestador; los especialistas reciben tareas puntuales del backend.
-- Los mensajes vacíos o de más de 2000 caracteres reciben `422`. Los fallos de Foundry reciben `502` con un mensaje genérico.
+- `POST /api/chat` recibe JSON (`message`, `conversation_id`) para mensajes de texto y `multipart/form-data` (`message`, `conversation_id`, `attachment`) cuando se adjunta un archivo. En el primer turno se puede omitir `conversation_id`; usa el identificador devuelto en los seguimientos para mantener el contexto del orquestador.
+- Se admite un archivo de hasta 5 MB por mensaje: DOCX, XLSX, JPG o PNG. El backend extrae texto de DOCX/XLSX; JPG/PNG se envían como entrada de imagen y requieren que el modelo del agente admita visión.
+- El texto del mensaje es obligatorio, incluso cuando se adjunta un archivo; los mensajes vacíos o de más de 2000 caracteres reciben `422`. Los formatos no admitidos reciben `415` y los archivos mayores a 5 MB reciben `413`. Los fallos de Foundry reciben `502` con un mensaje genérico.
 - Ejecuta `npm test` para probar salud, validación y continuidad de conversación sin llamar a Foundry.
 - La interfaz guarda el historial y el identificador de conversación en `localStorage` del navegador. Se puede recuperar desde **Historial** o iniciar otro chat con **Nuevo**. Borrar los datos del sitio en el navegador también elimina este historial.

@@ -64,7 +64,20 @@
           </article>
         </div>
 
-        <div id="chat-status" class="chat-status" role="status" aria-live="polite"></div>
+        <div
+          id="chat-status"
+          class="chat-status"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span id="chat-loading-indicator" class="chat-loading-indicator" aria-hidden="true" hidden>
+            <span class="chat-loading-ring">
+              <img src="/assistant-avatar.png" alt="">
+            </span>
+          </span>
+          <span id="chat-status-text"></span>
+        </div>
 
         <form id="chat-form" class="chat-composer">
           <label class="visually-hidden" for="chat-input">Escribe tu mensaje</label>
@@ -75,15 +88,53 @@
             maxlength="2000"
             placeholder="Escribe tu mensaje..."
             autocomplete="off"
-            required
           ></textarea>
-          <button id="send-button" type="submit" aria-label="Enviar mensaje">
+          <button id="send-button" type="submit" aria-label="Enviar mensaje" disabled>
             <span>Enviar</span>
             <svg aria-hidden="true" viewBox="0 0 20 20">
               <path d="M3.5 10h12m-5-5 5 5-5 5"></path>
             </svg>
           </button>
-          <p class="composer-hint">Enter para enviar · Shift + Enter para una nueva línea</p>
+          <div class="composer-attachment">
+            <button id="attachment-button" class="attachment-button" type="button">
+              Adjuntar archivo
+            </button>
+            <div
+              id="attachment-dropzone"
+              class="attachment-dropzone"
+              role="button"
+              tabindex="0"
+              aria-describedby="attachment-dropzone-hint"
+            >
+              <span class="dropzone-title">Arrastra y suelta un archivo aquí</span>
+              <span id="attachment-dropzone-hint" class="dropzone-hint">
+                También puedes hacer clic para elegir una imagen o documento
+              </span>
+            </div>
+            <input
+              id="attachment-input"
+              class="visually-hidden"
+              type="file"
+              accept=".docx,.xlsx,.jpg,.png"
+              aria-label="Seleccionar archivo DOCX, XLSX, JPG o PNG"
+            >
+            <div id="attachment-preview" class="attachment-preview" hidden>
+              <span id="attachment-name" class="attachment-name"></span>
+              <button
+                id="remove-attachment-button"
+                class="remove-attachment-button"
+                type="button"
+                aria-label="Quitar archivo adjunto"
+                title="Quitar archivo"
+              >
+                Quitar
+              </button>
+            </div>
+            <p id="attachment-status" class="attachment-status" role="status" aria-live="polite"></p>
+          </div>
+          <p class="composer-hint">
+            Enter para enviar · Shift + Enter para una nueva línea · DOCX, XLSX, JPG o PNG (máx. 5 MB)
+          </p>
         </form>
       </section>
       <p class="privacy-note">Las respuestas pueden requerir verificación con las políticas vigentes.</p>

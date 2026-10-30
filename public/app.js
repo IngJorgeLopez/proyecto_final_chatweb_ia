@@ -5,7 +5,15 @@ const chatMessages = document.querySelector("#chat-messages");
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const sendButton = document.querySelector("#send-button");
-const chatStatus = document.querySelector("#chat-status");
+const attachmentButton = document.querySelector("#attachment-button");
+const attachmentDropzone = document.querySelector("#attachment-dropzone");
+const attachmentInput = document.querySelector("#attachment-input");
+const attachmentPreview = document.querySelector("#attachment-preview");
+const attachmentName = document.querySelector("#attachment-name");
+const attachmentStatus = document.querySelector("#attachment-status");
+const removeAttachmentButton = document.querySelector("#remove-attachment-button");
+const chatLoadingIndicator = document.querySelector("#chat-loading-indicator");
+const chatStatusText = document.querySelector("#chat-status-text");
 const newChatButton = document.querySelector("#new-chat-button");
 const historyButton = document.querySelector("#history-button");
 const chatHistory = document.querySelector("#chat-history");
@@ -16,7 +24,9 @@ function isValidMessage(message) {
   return (
     message &&
     typeof message.text === "string" &&
-    ["user", "assistant", "error"].includes(message.role)
+    ["user", "assistant", "error"].includes(message.role) &&
+    (message.attachmentName === undefined ||
+      typeof message.attachmentName === "string")
   );
 }
 
@@ -67,6 +77,7 @@ let activeConversation =
   state.conversations.find((conversation) => conversation.id === state.activeId) ??
   null;
 let conversationId = activeConversation?.conversationId ?? null;
+let attachedFile = null;
 
 function saveState() {
   try {
@@ -87,7 +98,7 @@ function saveState() {
   }
 }
 
-function createMessageElement(text, role) {
+function createMessageElement(text, role, fileName = null) {
   const message = document.createElement("article");
   message.className = `message message-${role}`;
 
@@ -102,9 +113,17 @@ function createMessageElement(text, role) {
 
   const content = document.createElement("div");
   content.className = "message-content";
-  const paragraph = document.createElement("p");
-  paragraph.textContent = text;
-  content.append(paragraph);
+  if (text) {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = text;
+    content.append(paragraph);
+  }
+  if (fileName) {
+    const attachment = document.createElement("span");
+    attachment.className = "attachment-reference";
+    attachment.textContent = `Archivo adjunto: ${fileName}`;
+    content.append(attachment);
+  }
   message.append(content);
   return message;
 }
@@ -116,7 +135,9 @@ function renderMessages(messages = []) {
     : [{ role: "assistant", text: WELCOME_MESSAGE }];
 
   for (const message of visibleMessages) {
-    chatMessages.append(createMessageElement(message.text, message.role));
+    chatMessages.append(
+      createMessageElement(message.text, message.role, message.attachmentName),
+    );
   }
 
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -175,13 +196,53 @@ function persistActiveConversation() {
   renderConversationList();
 }
 
-function addMessage(text, role) {
-  chatMessages.append(createMessageElement(text, role));
+function addMessage(text, role, fileName = null) {
+  chatMessages.append(createMessageElement(text, role, fileName));
   chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
 
   if (activeConversation) {
-    activeConversation.messages.push({ role, text });
+    const message = { role, text };
+    if (fileName) {
+      message.attachmentName = fileName;
+    }
+    activeConversation.messages.push(message);
     persistActiveConversation();
+  }
+}
+
+function clearAttachment() {
+  attachedFile = null;
+  attachmentInput.value = "";
+  attachmentName.textContent = "";
+  attachmentPreview.hidden = true;
+  attachmentStatus.textContent = "";
+}
+
+function attachFile(file) {
+  const extension = file.name.split(".").pop().toLowerCase();
+  const allowedExtensions = ["docx", "xlsx", "jpg", "png"];
+
+  if (!allowedExtensions.includes(extension)) {
+    clearAttachment();
+    attachmentStatus.textContent =
+      "Formato no admitido. Selecciona DOCX, XLSX, JPG o PNG.";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    clearAttachment();
+    attachmentStatus.textContent = "El archivo no puede superar los 5 MB.";
+    return;
+  }
+
+  attachedFile = file;
+  attachmentName.textContent = file.name;
+  attachmentPreview.hidden = false;
+  attachmentStatus.textContent = "";
+}
+
+function openAttachmentPicker() {
+  if (!chatInput.disabled) {
+    attachmentInput.click();
   }
 }
 
@@ -190,6 +251,7 @@ function startNewConversation() {
   conversationId = null;
   state.activeId = null;
   chatInput.value = "";
+  clearAttachment();
   renderMessages();
   renderConversationList();
   saveState();
@@ -208,6 +270,7 @@ function openConversation(id) {
   conversationId = conversation.conversationId;
   state.activeId = conversation.id;
   chatInput.value = "";
+  clearAttachment();
   renderMessages(conversation.messages);
   renderConversationList();
   saveState();
@@ -217,14 +280,81 @@ function openConversation(id) {
 }
 
 function setPending(isPending) {
-  sendButton.disabled = isPending;
+  sendButton.disabled = isPending || !chatInput.value.trim();
   chatInput.disabled = isPending;
+  attachmentButton.disabled = isPending;
+  attachmentDropzone.setAttribute("aria-disabled", String(isPending));
+  attachmentDropzone.classList.toggle("is-disabled", isPending);
+  removeAttachmentButton.disabled = isPending;
   newChatButton.disabled = isPending;
   historyButton.disabled = isPending;
-  chatStatus.textContent = isPending ? "Escribiendo…" : "";
+  chatLoadingIndicator.hidden = !isPending;
+  chatStatusText.textContent = isPending ? "Escribiendo…" : "";
 }
 
 newChatButton.addEventListener("click", startNewConversation);
+chatInput.addEventListener("input", () => {
+  sendButton.disabled = !chatInput.value.trim();
+});
+attachmentButton.addEventListener("click", openAttachmentPicker);
+attachmentDropzone.addEventListener("click", openAttachmentPicker);
+attachmentDropzone.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openAttachmentPicker();
+  }
+});
+attachmentInput.addEventListener("change", () => {
+  const file = attachmentInput.files[0];
+  if (!file) {
+    return;
+  }
+
+  attachFile(file);
+});
+removeAttachmentButton.addEventListener("click", clearAttachment);
+
+let dragDepth = 0;
+attachmentDropzone.addEventListener("dragenter", (event) => {
+  event.preventDefault();
+  if (chatInput.disabled) {
+    return;
+  }
+  dragDepth += 1;
+  attachmentDropzone.classList.add("is-dragging");
+});
+attachmentDropzone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = chatInput.disabled ? "none" : "copy";
+  }
+});
+attachmentDropzone.addEventListener("dragleave", (event) => {
+  event.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) {
+    attachmentDropzone.classList.remove("is-dragging");
+  }
+});
+attachmentDropzone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dragDepth = 0;
+  attachmentDropzone.classList.remove("is-dragging");
+
+  if (chatInput.disabled) {
+    return;
+  }
+
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (files.length > 1) {
+    clearAttachment();
+    attachmentStatus.textContent = "Adjunta un solo archivo por mensaje.";
+    return;
+  }
+  if (files[0]) {
+    attachFile(files[0]);
+  }
+});
 
 historyButton.addEventListener("click", () => {
   chatHistory.hidden = !chatHistory.hidden;
@@ -244,6 +374,7 @@ conversationList.addEventListener("click", (event) => {
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = chatInput.value.trim();
+  const file = attachedFile;
 
   if (!message || message.length > 2000) {
     return;
@@ -253,25 +384,40 @@ chatForm.addEventListener("submit", async (event) => {
     activeConversation = {
       id: crypto.randomUUID(),
       conversationId: null,
-      title: message,
+      title: message || file.name,
       updatedAt: new Date().toISOString(),
       messages: [],
     };
     state.conversations.push(activeConversation);
   }
 
-  addMessage(message, "user");
+  addMessage(message, "user", file?.name ?? null);
   chatInput.value = "";
+  clearAttachment();
   setPending(true);
 
   try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    let requestBody;
+    const headers = {};
+    if (file) {
+      requestBody = new FormData();
+      requestBody.append("message", message);
+      if (conversationId) {
+        requestBody.append("conversation_id", conversationId);
+      }
+      requestBody.append("attachment", file);
+    } else {
+      headers["Content-Type"] = "application/json";
+      requestBody = JSON.stringify({
         message,
         conversation_id: conversationId,
-      }),
+      });
+    }
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers,
+      body: requestBody,
     });
     const result = await response.json();
 
